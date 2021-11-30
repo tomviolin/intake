@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="2"
+   name=""
+   committed-date="2008-12-26T16:38:46.890787Z"
+   url="file:///usr/shares/svnrepos/sensmon/trunk"
+   last-author="tomh"
+   kind="dir"
+   uuid="b2e26d77-f55e-0410-8ffd-90df12d7b5cb"
+   repos="file:///usr/shares/svnrepos/sensmon"
+   revision="2"/>
+<entry
+   committed-rev="2"
+   name="sensmon.sql"
+   text-time="2008-12-26T16:33:31.000000Z"
+   committed-date="2008-12-26T16:38:46.890787Z"
+   checksum="e08d819821cb3b0168bb89295e0a2187"
+   last-author="tomh"
+   kind="file"/>
+<entry
+   committed-rev="1"
+   name="SensorMonitor.php"
+   text-time="2008-12-26T16:23:20.000000Z"
+   committed-date="2008-12-26T16:21:11.598248Z"
+   checksum="53dc65a2072df9be3e1d3d4543a37c28"
+   last-author="tomh"
+   kind="file"
+   prop-time="2008-12-26T16:23:20.000000Z"/>
+</wc-entries>

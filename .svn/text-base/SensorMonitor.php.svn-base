@@ -1,0 +1,157 @@
+<?php
+
+// constant declarations
+define(SQL_ERR, 'if (mysql_errno() > 0) { die("MySQL error in " . __FILE__." line " .  __LINE__ . ": ".mysql_error()); }');
+define(DEFAULT_SENSORID, 0);
+
+// class for monitoring sensor readings, typically environmental
+// parameters in a building.
+
+class SensorMonitor {
+
+	protected $sensorID;		// record ID of sensor
+	protected $config;		// array containing configuration options
+
+	// the following values are found in the database:
+	/*
+		dbTable			// where to obtain the data
+		dbSensorColumn		// which column we are monitoring
+		dbAlarmMinColumn	// current alarm minimum setting
+		dbAlarmMaxColumn	// current alarm maximum setting
+		dbRecDate		// datetime of data collection
+		dbWhere			// filter for data
+		alarmMin		// alarm minimum
+		alarmMax		// alarm maximum
+		alertEmail		// e-mail to send alarm
+		avgOver			// average over this time interval
+					//	(MySQL interval syntax, e.g. "20 minute")
+		minRecs;		// minimum number of records for alarm
+					//   to be considered "real"
+		alarmTimeoutTime;	// time interval from present that
+					//   data is missing to trigger
+					//   a sensor timeout alarm
+					//   (MySQL interval syntax, e.g. "30 minute")
+	*/
+
+	function ReadSMConfig() {
+		$query = "select * from sensmon.sensor_config where recid=$sensorID";
+		$result = mysql_query($query);
+		eval(SQL_ERR);
+		if (mysql_num_rows() == 1) {
+			return mysql_fetch_array($result);
+		} else {
+			return NULL;
+		}
+	}
+
+	// constructor
+	function SensorMonitor($c_sensorID) {
+		$sensorID = $c_sensorID;
+		if (($config = ReadSMConfig()) === NULL) {
+			$sensorID = 0;
+			$config = ReadSMConfig();
+			if ($config === NULL) {
+				die ("no default sensor config found.");
+			}
+		}
+	}
+
+	function WriteSMConfig($sensorID) {
+		if ($sensorID == "") {
+			// we are inserting
+			$icols = "";
+			$ivals = "";
+			foreach ($key => $val, $config) {
+				$icols .= "\`$key\`,";
+				$ivals .= "\"$val\",";
+				if (strlen($icols) > 0) {
+					$icols = substr($icols, 0, strlen($icols)-1);
+				}
+				if (strlen($icols) > 0) {
+					$ivals = substr($ivals, 0, strlen($ivals)-1);
+				}
+			}
+			$query = "insert into sensmon.sensor_config ($icols) values ($ivals)";
+		} else {
+			// we are updating
+			$query = "update sensmon.sensor_config ";
+			foreach ($key -> $val, $config) {
+				if ($key != "recid") {
+					$query .= "set \`$key\` = \"$val\",";
+				}
+			}
+			$query = substr($query,0,strlen($query)-1) . " where recid == $sensorID";
+		}
+		$result = mysql_query($query);
+		eval(SQL_ERR);
+	}
+
+	function FetchCurrentAlarmReading() {
+		// Returns current sensor value to be used for checking the alarm.
+		//   This value is the average over the most recent $avgOver interval.
+
+		// first obtain highest date on file
+		$query = "select max({$config['datecolumn']}) as maxdbrecdate from {$config['table']}";
+		if ($config['sqlwhere'] != "") {
+			$query .= " ".$config['sqlwhere'];
+		}
+		$result = mysql_query($query);
+		eval(SQL_ERR);
+		if (mysql_num_rows($result) != 1) {
+			die("table {$config['table']} has no rows for sensor {$config['table']}.{$config['datacolumn']}");
+		}
+		$row = mysql_fetch_array($result);
+		$maxDate = $row['maxdbrecdate'];
+
+		$query = "select avg({$config['datacolumn']}) as sensorVal, count({$config['datacolumn']}) as dataCount from {$config['table']} where ({$config['datecolumn']} >= date_sub(convert_tz(now(),'SYSTEM','GMT'), interval {$config['alarm_avg_time']}))";
+		if ($dbWhere != "") {
+			$query .= " and ($dbWhere)";
+		}
+		$result = mysql_query($query);
+		eval(SQL_ERR);
+		if (mysql_num_rows() > 0) {
+			die("table {$config['table']} has no rows for sensor {$config['datacolumn']}");
+		}
+		$row = mysql_fetch_array($result);
+		return array($row['sensorVal'],$row['dataCount']);
+	}
+
+	function SendAlarm($errorMessage) {
+		// send alarm
+		mail($config['alert_email'], "ALARM", $errorMessage, "X-Mailer: GLWI alarm www.glwi.uwm.edu");
+	}
+
+	function CheckAlarmCondition() {
+		// check alarm conditions
+		list($currentAlarmReading, $rowCount) = FetchCurrentAlarmReading();
+		if ($rowCount < $config['alarm_min_readings']) {
+			// insufficient data to determine an alarm condition
+			//    based on sensor out of range.
+			//    We must check time since last measurement.
+			//    NOTE: This is with respect to the database server's time.
+			//    This eliminates any issues with client/server time mismatch.
+			$query = "select count({$config['datacolumn']}) as dataCount from {$config['table']} where {$config['datecolumn']} > date_sub(convert_tz(now(),'SYSTEM','GMT'), interval {$config['alarm_timeout_time'])";
+			$result = mysql_query($result);
+			eval(SQL_ERR);
+			$row = mysq_fetch_array($result);
+			eval(SQL_ERR);
+			if ((mysql_num_rows() == 0) or ($row['dataCount'] == 0)) {
+				// *** ALARM! ***
+				SendAlarm("no readings from {$config['table']}.{$config['datacolumn']} for {$config['alarm_timeout_time']}"."s");
+				exit(1);
+			}
+		}
+		if ($currentAlarmReading < $config['alarm_min']) {
+			// *** ALARM! ***
+			SendAlarm("{$config['description']}: reading of $currentAlarmReading{$config['datatype_short']} less than limit of {$config['alarm_min']}{$config['datatype_short']}");
+			exit(1);
+		}
+		if ($currentAlarmReading > $config['alarm_max']) {
+			// *** ALARM! ***
+			SendAlarm("{$config['description']}: reading of $currentAlarmReading{$config['datatype_short']} greater than limit of {$config['alarm_max']}{$config['datatype_short']}");
+			exit(1);
+		}
+	}
+}
+?>
+
