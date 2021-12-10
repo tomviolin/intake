@@ -5,17 +5,17 @@ MAINTAINER Tom Hansen "tomh@uwm.edu"
 COPY ./.my.cnf /root/
 COPY . /var/www/html/intake
 
-RUN apt-get update && apt-get install -y \
+RUN echo deb http://http.us.debian.org/debian bullseye main contrib non-free >> /etc/apt/sources.list
+
+RUN apt-get update && apt-get install -y ttf-mscorefonts-installer \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
-        libpng-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd
+        libpng-dev
 
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+RUN docker-php-ext-install -j$(nproc) gd
 RUN docker-php-ext-install mysqli
 
-RUN echo deb http://http.us.debian.org/debian bullseye main contrib non-free >> /etc/apt/sources.list
-RUN apt-get update && apt-get install -y ttf-mscorefonts-installer
 
 RUN ln -fs /usr/share/zoneinfo/America/Chicago /etc/localtime
 RUN dpkg-reconfigure --frontend noninteractive tzdata
