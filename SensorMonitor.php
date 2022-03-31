@@ -432,7 +432,12 @@ class SensorMonitor {
 			unset($majtickpos);
 			unset($majticklabel);
 			$i = 0;
-			for ($tick = $startdayticks; $tick <= $maxgraphdate; $tick += 3600) {
+			if ($daterange < 12*60) {
+				$incr = 5*60;
+			} else {
+				$incr = 3600;
+			}
+			for ($tick = $startdayticks; $tick <= $maxgraphdate; $tick += $incr) {
 				if (date("G",$tick) == 0) {
 					// we are on a day mark
 					$majtickpos[$i] = $tick;
